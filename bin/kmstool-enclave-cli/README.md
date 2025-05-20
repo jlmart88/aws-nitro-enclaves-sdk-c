@@ -9,18 +9,21 @@ By doing that, this tool can be used by any programming langauge that can intera
 ## How to use it
 
 1. Run the build script
+
    ```
    $ cd bin/kmstool-enclave-cli
    $ ./build.sh
    ```
 
 1. Copy the generated files to your enclave application directory
+
    ```
    $ cp kmstool_enclave_cli <your_enclave_app_directory>/
    $ cp libnsm.so <your_enclave_app_directory>/
    ```
 
 1. Modify your enclave applicaton `Dockerfile` to include those generated files. For example:
+
    ```
    COPY kmstool_enclave_cli ./
    COPY libnsm.so ./
@@ -29,7 +32,7 @@ By doing that, this tool can be used by any programming langauge that can intera
    You can include `libnsm.so` by:
 
    1. Copying `libnsm.so` into the default library path depending your application's base image e.g. `/usr/lib64/`
-   
+
    1. Setting library path environment variable before your enclave application start. E.g.
       ```
       $ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:<path_of_the_directory_containing_nsmlib.so>
@@ -38,6 +41,7 @@ By doing that, this tool can be used by any programming langauge that can intera
 1. Use any subprocess method from your chosen programming language to interact with `kmstool-enclave-cli`
 
    1. The **`decrypt`** call takes the following parameters:
+
       1. `decrypt` command
 
       2. `--region` AWS region to use for KMS
@@ -56,6 +60,7 @@ By doing that, this tool can be used by any programming langauge that can intera
 
       9. `--encryption-algorithm` encryption algorithm for ciphertext (required if `--key-id` has been set)
 
+      10. `--encryption-context` encryption context JSON string
 
       and outputs the base64-encoded plaintext with `PLAINTEXT: ` as prefix if the execution succeeds.
 
@@ -85,7 +90,8 @@ By doing that, this tool can be used by any programming langauge that can intera
       ```
 
    1. The **`genkey`** call takes the following parameters:
-      1.  `genkey` command
+
+      1. `genkey` command
 
       2. `--region` AWS region to use for KMS
 
@@ -133,7 +139,8 @@ By doing that, this tool can be used by any programming langauge that can intera
       ```
 
    1. The **`genrandom`** call takes the following parameters:
-      1.  `genrandom` command
+
+      1. `genrandom` command
 
       2. `--region` AWS region to use for KMS
 
@@ -177,7 +184,9 @@ By doing that, this tool can be used by any programming langauge that can intera
 ## Troubleshooting
 
 ### Missing Common CA Certificates
+
 If you are running `kmstool-enclave-cli` in an environment that does not have the common CA certificates installed, you will face the following error:
+
 ```shell
 [ERROR] [2023-02-23T15:16:21Z] [00007efd15f94840] [tls-handler] - ctx: configuration error: Error initializing trust store (Error encountered in /tmp/crt-builder/s2n-tls/tls/s2n_x509_validator.c:120)
 [ERROR] [2023-02-23T15:16:21Z] [00007efd15f94840] [tls-handler] - Failed to set ca_path: (null) and ca_file (null)
@@ -186,6 +195,7 @@ If you are running `kmstool-enclave-cli` in an environment that does not have th
 To solve the problem, use a docker image that has common CA certificates pre-installed like `amazonlinux:2`. [`kmstool-enclave`](https://github.com/aws/aws-nitro-enclaves-sdk-c/blob/main/docs/kmstool.md) explicitly gets the common CA certificates [installed during the build process](https://github.com/aws/aws-nitro-enclaves-sdk-c/blob/main/containers/Dockerfile.al2#L90) to enable a minimal enclave build from [`scratch`](https://docs.docker.com/build/building/base-images/#create-a-simple-parent-image-using-scratch).
 
 If you want to use a generic docker image with a smaller initial footprint, e.g. `debian:buster-slim`, you have to install the CA certificates during the docker build step similar to this:
+
 ```shell
 RUN apt-get update && apt-get install -y ca-certificates
 ```

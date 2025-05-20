@@ -58,6 +58,7 @@ struct app_ctx {
     /* Data parameters */
     const struct aws_string *ciphertext_b64;
     const struct aws_string *encryption_algorithm;
+    const struct aws_string *encryption_context;
     const struct aws_string *key_id;
     enum aws_key_spec key_spec;
 
@@ -92,6 +93,7 @@ static void s_usage_decrypt(int exit_code) {
     fprintf(stderr, "    --ciphertext CIPHERTEXT: base64-encoded ciphertext that need to decrypt\n");
     fprintf(stderr, "    --key-id KEY_ID: decrypt key id (for symmetric keys, is optional)\n");
     fprintf(stderr, "    --encryption-algorithm ENCRYPTION_ALGORITHM: encryption algorithm for ciphertext\n");
+    fprintf(stderr, "    --encryption-context ENCRYPTION_CONTEXT: encryption context JSON string\n");
     exit(exit_code);
 }
 
@@ -139,6 +141,7 @@ static struct aws_cli_option s_long_options[] = {
     {"key-id", AWS_CLI_OPTIONS_REQUIRED_ARGUMENT, NULL, 'K'},
     {"key-spec", AWS_CLI_OPTIONS_REQUIRED_ARGUMENT, NULL, 'p'},
     {"encryption-algorithm", AWS_CLI_OPTIONS_REQUIRED_ARGUMENT, NULL, 'a'},
+    {"encryption-context", AWS_CLI_OPTIONS_REQUIRED_ARGUMENT, NULL, 'e'},
     {"length", AWS_CLI_OPTIONS_REQUIRED_ARGUMENT, NULL, 'l'},
     {"help", AWS_CLI_OPTIONS_NO_ARGUMENT, NULL, 'h'},
     {NULL, 0, NULL, 0},
@@ -162,13 +165,14 @@ static void s_parse_options(int argc, char **argv, const char *subcommand, struc
     ctx->key_id = NULL;
     ctx->key_spec = -1;
     ctx->encryption_algorithm = NULL;
+    ctx->encryption_context = NULL;
     ctx->length = -1;
 
     aws_cli_optind = 2;
     while (true) {
         int option_index = 0;
 
-        int c = aws_cli_getopt_long(argc, argv, "r:x:k:s:t:c:K:p:a:l:h", s_long_options, &option_index);
+        int c = aws_cli_getopt_long(argc, argv, "r:x:k:s:t:c:K:p:a:e:l:h", s_long_options, &option_index);
         if (c == -1) {
             break;
         }
@@ -210,6 +214,9 @@ static void s_parse_options(int argc, char **argv, const char *subcommand, struc
                             break;
                          case 'K':
                             ctx->key_id = aws_string_new_from_c_str(ctx->allocator, aws_cli_optarg);
+                            break;
+                        case 'e':
+                            ctx->encryption_context = aws_string_new_from_c_str(ctx->allocator, aws_cli_optarg);
                             break;
                         default:
                             fprintf(stderr, "Unknown option: %s\n", aws_cli_optarg);
@@ -386,8 +393,14 @@ static int decrypt(struct app_ctx *app_ctx, struct aws_byte_buf *ciphertext_decr
 
     /* Decrypt the data with KMS. */
     struct aws_byte_buf ciphertext_decrypted;
-    rc = aws_kms_decrypt_blocking(
-        client, app_ctx->key_id, app_ctx->encryption_algorithm, &ciphertext, &ciphertext_decrypted);
+    if (app_ctx->encryption_context != NULL) {
+        rc = aws_kms_decrypt_blocking_with_context(
+            client, app_ctx->key_id, app_ctx->encryption_algorithm, &ciphertext, app_ctx->encryption_context, &ciphertext_decrypted);
+    } else {
+        rc = aws_kms_decrypt_blocking(
+            client, app_ctx->key_id, app_ctx->encryption_algorithm, &ciphertext, &ciphertext_decrypted);
+    }
+
     
     aws_byte_buf_clean_up(&ciphertext);
     fail_on(rc != AWS_OP_SUCCESS, "Could not decrypt ciphertext");
